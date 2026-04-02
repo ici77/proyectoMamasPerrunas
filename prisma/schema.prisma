@@ -1,0 +1,258 @@
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "binary"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model User {
+  id             BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  nombre         String   @db.VarChar(80)
+  email          String   @unique(map: "uq_users_email") @db.VarChar(191)
+  passwordHash   String   @map("password_hash") @db.VarChar(255)
+  fotoPerfilUrl  String?  @map("foto_perfil_url") @db.VarChar(500)
+  descripcion    String?  @db.VarChar(500)
+  rol            UserRole @default(USER)
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.DateTime(0)
+
+  posts          Post[]
+  postReactions  PostReaction[]
+  postFavorites  PostFavorite[]
+  postReports    PostReport[]
+  postReplies    PostReply[]
+  replyReports   ReplyReport[]
+  createdEvents  Event[]
+  eventAttendees EventAttendee[]
+
+  @@map("users")
+}
+
+model ForumCategory {
+  id          BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  nombre      String   @unique(map: "uq_forum_categories_nombre") @db.VarChar(100)
+  slug        String   @unique(map: "uq_forum_categories_slug") @db.VarChar(120)
+  descripcion String   @db.VarChar(255)
+  isActive    Boolean  @default(true) @map("is_active")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.DateTime(0)
+
+  posts       Post[]
+
+  @@map("forum_categories")
+}
+
+model Post {
+  id          BigInt     @id @default(autoincrement()) @db.UnsignedBigInt
+  userId      BigInt     @map("user_id") @db.UnsignedBigInt
+  categoryId  BigInt     @map("category_id") @db.UnsignedBigInt
+  titulo      String     @db.VarChar(160)
+  slug        String?    @unique(map: "uq_posts_slug") @db.VarChar(180)
+  contenido   String     @db.Text
+  imagenUrl   String?    @map("imagen_url") @db.VarChar(500)
+  status      PostStatus @default(PUBLISHED)
+  isFeatured  Boolean    @default(false) @map("is_featured")
+  createdAt   DateTime   @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt   DateTime   @updatedAt @map("updated_at") @db.DateTime(0)
+
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_posts_user")
+  category    ForumCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_posts_category")
+  reactions   PostReaction[]
+  favorites   PostFavorite[]
+  reports     PostReport[]
+  replies     PostReply[]
+
+  @@index([userId], map: "idx_posts_user_id")
+  @@index([categoryId], map: "idx_posts_category_id")
+  @@index([status], map: "idx_posts_status")
+  @@index([isFeatured], map: "idx_posts_featured")
+  @@index([createdAt], map: "idx_posts_created_at")
+  @@map("posts")
+}
+
+model PostReaction {
+  id           BigInt       @id @default(autoincrement()) @db.UnsignedBigInt
+  postId       BigInt       @map("post_id") @db.UnsignedBigInt
+  userId       BigInt       @map("user_id") @db.UnsignedBigInt
+  reactionType ReactionType @map("reaction_type")
+  createdAt    DateTime     @default(now()) @map("created_at") @db.DateTime(0)
+
+  post         Post         @relation(fields: [postId], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_post_reactions_post")
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_post_reactions_user")
+
+  @@unique([postId, userId], map: "uq_post_reaction_unique")
+  @@index([postId], map: "idx_post_reactions_post_id")
+  @@index([userId], map: "idx_post_reactions_user_id")
+  @@index([reactionType], map: "idx_post_reactions_type")
+  @@map("post_reactions")
+}
+
+model PostFavorite {
+  id        BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  postId    BigInt   @map("post_id") @db.UnsignedBigInt
+  userId    BigInt   @map("user_id") @db.UnsignedBigInt
+  createdAt DateTime @default(now()) @map("created_at") @db.DateTime(0)
+
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_post_favorites_post")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_post_favorites_user")
+
+  @@unique([postId, userId], map: "uq_post_favorite_unique")
+  @@index([postId], map: "idx_post_favorites_post_id")
+  @@index([userId], map: "idx_post_favorites_user_id")
+  @@map("post_favorites")
+}
+
+model PostReport {
+  id        BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  postId    BigInt   @map("post_id") @db.UnsignedBigInt
+  userId    BigInt   @map("user_id") @db.UnsignedBigInt
+  motivo    String?  @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at") @db.DateTime(0)
+
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_post_reports_post")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_post_reports_user")
+
+  @@unique([postId, userId], map: "uq_post_report_unique")
+  @@index([postId], map: "idx_post_reports_post_id")
+  @@index([userId], map: "idx_post_reports_user_id")
+  @@map("post_reports")
+}
+
+model PostReply {
+  id        BigInt      @id @default(autoincrement()) @db.UnsignedBigInt
+  postId    BigInt      @map("post_id") @db.UnsignedBigInt
+  userId    BigInt      @map("user_id") @db.UnsignedBigInt
+  contenido String      @db.VarChar(500)
+  status    ReplyStatus @default(PUBLISHED)
+  createdAt DateTime    @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt DateTime    @updatedAt @map("updated_at") @db.DateTime(0)
+
+  post      Post        @relation(fields: [postId], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_post_replies_post")
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_post_replies_user")
+  reports   ReplyReport[]
+
+  @@index([postId], map: "idx_post_replies_post_id")
+  @@index([userId], map: "idx_post_replies_user_id")
+  @@index([status], map: "idx_post_replies_status")
+  @@index([createdAt], map: "idx_post_replies_created_at")
+  @@map("post_replies")
+}
+
+model ReplyReport {
+  id        BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  replyId   BigInt   @map("reply_id") @db.UnsignedBigInt
+  userId    BigInt   @map("user_id") @db.UnsignedBigInt
+  motivo    String?  @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at") @db.DateTime(0)
+
+  reply     PostReply @relation(fields: [replyId], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_reply_reports_reply")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_reply_reports_user")
+
+  @@unique([replyId, userId], map: "uq_reply_report_unique")
+  @@index([replyId], map: "idx_reply_reports_reply_id")
+  @@index([userId], map: "idx_reply_reports_user_id")
+  @@map("reply_reports")
+}
+
+model EventCategory {
+  id          BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  nombre      String   @unique(map: "uq_event_categories_nombre") @db.VarChar(100)
+  slug        String   @unique(map: "uq_event_categories_slug") @db.VarChar(120)
+  descripcion String   @db.VarChar(255)
+  isActive    Boolean  @default(true) @map("is_active")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.DateTime(0)
+
+  events      Event[]
+
+  @@map("event_categories")
+}
+
+model Event {
+  id          BigInt      @id @default(autoincrement()) @db.UnsignedBigInt
+  createdBy   BigInt      @map("created_by") @db.UnsignedBigInt
+  titulo      String      @db.VarChar(180)
+  slug        String?     @unique(map: "uq_events_slug") @db.VarChar(200)
+  descripcion String      @db.Text
+  fechaInicio DateTime    @map("fecha_inicio") @db.DateTime(0)
+  fechaFin    DateTime?   @map("fecha_fin") @db.DateTime(0)
+  lugar       String      @db.VarChar(255)
+  direccion   String?     @db.VarChar(255)
+  imagenUrl   String?     @map("imagen_url") @db.VarChar(500)
+  categoryId  BigInt      @map("category_id") @db.UnsignedBigInt
+  esDePago    Boolean     @default(false) @map("es_de_pago")
+  precio      Decimal?    @db.Decimal(10, 2)
+  destacado   Boolean     @default(false)
+  status      EventStatus @default(PUBLISHED)
+  createdAt   DateTime    @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt   DateTime    @updatedAt @map("updated_at") @db.DateTime(0)
+
+  creator     User          @relation(fields: [createdBy], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_events_created_by")
+  category    EventCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "fk_events_category")
+  attendees   EventAttendee[]
+
+  @@index([createdBy], map: "idx_events_created_by")
+  @@index([fechaInicio], map: "idx_events_fecha_inicio")
+  @@index([categoryId], map: "idx_events_category_id")
+  @@index([status], map: "idx_events_status")
+  @@index([destacado], map: "idx_events_destacado")
+  @@map("events")
+}
+
+model EventAttendee {
+  id        BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
+  eventId   BigInt           @map("event_id") @db.UnsignedBigInt
+  userId    BigInt           @map("user_id") @db.UnsignedBigInt
+  status    AttendanceStatus @default(JOINED)
+  joinedAt  DateTime         @default(now()) @map("joined_at") @db.DateTime(0)
+  updatedAt DateTime         @updatedAt @map("updated_at") @db.DateTime(0)
+
+  event     Event            @relation(fields: [eventId], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_event_attendees_event")
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "fk_event_attendees_user")
+
+  @@unique([eventId, userId], map: "uq_event_attendee_unique")
+  @@index([eventId], map: "idx_event_attendees_event_id")
+  @@index([userId], map: "idx_event_attendees_user_id")
+  @@index([status], map: "idx_event_attendees_status")
+  @@map("event_attendees")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  MODERATOR
+}
+
+enum PostStatus {
+  PUBLISHED
+  HIDDEN
+  DELETED
+}
+
+enum ReactionType {
+  LIKE
+  DISLIKE
+}
+
+enum ReplyStatus {
+  PUBLISHED
+  HIDDEN
+  DELETED
+}
+
+enum EventStatus {
+  PUBLISHED
+  CANCELLED
+  FINISHED
+  HIDDEN
+}
+
+enum AttendanceStatus {
+  JOINED
+  CANCELLED
+}
